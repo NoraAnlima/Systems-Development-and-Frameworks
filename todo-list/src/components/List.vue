@@ -3,12 +3,12 @@
         <input v-model="newTodoName" placeholder="New Todo"
                @keyup.enter="addNewTodo"/>
         <button @click="addNewTodo" >Add</button>
-        <ListItem v-for="todo in todos" v-model="todos" :key="todo.id"
+        <list-item v-for="todo in todos" v-model="todos" :key="todo.id"
                   :todo="todo"
-                  @on-delete-clicked="onTodoDelete"
-                  @on-name-changed="onNameChanged"
-                  @on-done-changed="onDoneChanged" >
-        </ListItem>
+                  @delete-clicked="todoDelete"
+                  @name-changed="nameChanged"
+                  @done-changed="doneChanged" >
+        </list-item>
     </div>
 </template>
 
@@ -30,31 +30,40 @@
             console.log(this.todos);
         }
 
-        onTodoDelete(id: number, newName: string) {
-            for (let i = 0; i < this.todos.length; i++) {
-                if (this.todos[i].id == id) {
-                    console.debug("deleting element with id: " + id);
-                    this.todos.splice(i, 1);
-                }
+        todoDelete(id: number) {
+            let todo = this.todos.filter(t => t.id === id);
+
+            if (!todo) {
+                console.debug("element to delete doesn't exist with id: " + id);
+                return;
             }
+
+            console.debug("deleting element with id: " + id);
+            this.todos = this.todos.filter(t => t.id !== id);
         }
 
-        onNameChanged(id: number, newName: string) {
-            for (let i = 0; i < this.todos.length; i++) {
-                if (this.todos[i].id == id) {
-                    console.debug("renaming element with id: " + id);
-                    this.todos[i].name = newName;
-                }
+        nameChanged(id: number, newName: string) {
+            let todo = this.todos.find(t => t.id === id);
+
+            if (!todo) {
+                console.debug("element to rename doesn't exist with id: " + id);
+                return;
             }
+
+            console.debug("renaming element with id: " + id);
+            todo.name = newName;
         }
 
-        onDoneChanged(id: number, newChangedValue: boolean) {
-            for (let i = 0; i < this.todos.length; i++) {
-                if (this.todos[i].id == id) {
-                    console.debug("changing done status for element with id: " + id);
-                    this.todos[i].done = newChangedValue;
-                }
+        doneChanged(id: number, newChangedValue: boolean) {
+            let todo = this.todos.find(t => t.id === id);
+
+            if (!todo) {
+                console.debug("element to change done status doesn't exist with id: " + id);
+                return;
             }
+
+            console.debug("changing done status for element with id: " + id);
+            todo.done = newChangedValue;
         }
     }
 </script>

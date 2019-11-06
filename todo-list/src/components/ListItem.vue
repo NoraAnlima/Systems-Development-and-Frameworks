@@ -1,7 +1,7 @@
 <template>
     <div class="row">
         <div class="column">
-            <input type="checkbox" name="done" v-model="todo.done">
+            <input type="checkbox" name="done" v-model="todo.done" @click="doneChanged">
         </div>
         <div class="column">
             <input v-if="editMode" v-model="tempName"
@@ -14,7 +14,7 @@
         </div>
         <div v-else class="column">
             <button @click="startEditMode">Edit</button>
-            <button @click="onDeleteClicked">Delete</button>
+            <button @click="deleteClicked">Delete</button>
         </div>
     </div>
 </template>
@@ -41,7 +41,7 @@
                 return;
             }
 
-            this.$emit("on-name-changed", this.todo.id, this.tempName);
+            this.$emit("name-changed", this.todo.id, this.tempName);
             this.editMode = false;
         }
 
@@ -50,12 +50,16 @@
             this.editMode = false;
         }
 
-        onDeleteClicked() {
-            this.$emit("on-delete-clicked", this.todo.id);
+        deleteClicked() {
+            this.$emit("delete-clicked", this.todo.id);
         }
 
-        onDoneChanged() {
-            this.$emit("on-done-changed", this.todo.id);
+        doneChanged() {
+            if (!this.editMode) {
+                return;
+            }
+
+            this.$emit("done-changed", this.todo.id);
         }
 
     }
