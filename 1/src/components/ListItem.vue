@@ -4,9 +4,9 @@
             <input type="checkbox" name="done" v-model="todo.done" @click="doneChanged">
         </div>
         <div class="column">
-            <input v-if="editMode" v-model="tempName"
+            <input v-if="editMode" v-model="tempName" name="name"
                    @keyup.enter="saveNewName" @keydown.esc="cancelNewName" />
-            <p v-else :class="{ 'completed-todo-item': todo.done}" >{{todo.name}}</p>
+            <p v-else name="name" :class="{ 'completed-todo-item': todo.done}" >{{todo.name}}</p>
         </div>
         <div v-if="editMode" class="column">
             <button @click="saveNewName">Save</button>
@@ -26,10 +26,14 @@
     @Component
     export default class ListItem extends Vue {
         @Prop() private todo!: ToDo;
-        @Prop() private id!: number;
+        //@Prop() private id!: number;
 
         private editMode: boolean = false;
         private tempName: string = "";
+
+        public isEditMode(): boolean {
+            return this.editMode;
+        }
 
         startEditMode() {
             this.tempName = this.todo.name;
