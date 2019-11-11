@@ -57,15 +57,7 @@ describe("ListItem.vue", () => {
             deleteButton.trigger("click");
             expect(wrapper.emitted("delete-clicked")).toBeTruthy();
         });
-
-        // checkbox
-        // name/text
-        // edit und delete button
-        // events are emitted on change
-        // switch to edit mode when edit pressed
-        // edit mode: input field, save, cancel buttons
-
-    })
+    });
 
     describe("given a not completed todo and edit mode was entered ", () => {
 
@@ -103,7 +95,7 @@ describe("ListItem.vue", () => {
           expect(wrapper.emitted("name-changed")).toBeTruthy();
 
           //todo: check whether the new name is the parameter
-        })
+        });
 
         it("cancel button ends edit mode without a change on click", () => {
           let buttons = wrapper.findAll("button");

@@ -1,6 +1,6 @@
 <template>
     <div style="width: 300px">
-        <input v-model="newTodoName" placeholder="New Todo"
+        <input v-model="newTodoName" placeholder="New Todo" name="new-todo-input"
                @keyup.enter="addNewTodo"/>
         <button @click="addNewTodo" >Add</button>
         <list-item v-for="todo in todos" v-model="todos" :key="todo.id"
