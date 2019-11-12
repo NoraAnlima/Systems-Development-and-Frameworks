@@ -2,8 +2,6 @@ import {shallowMount, Wrapper} from "@vue/test-utils"
 import ListItem from "@/components/ListItem.vue"
 import {ToDo} from "@/todo";
 
-//todo: currently only spec files are getting read -> change this to test.ts files as those make more sense
-
 describe("ListItem.vue", () => {
 
     describe("given a not completed todo", () => {
@@ -93,8 +91,6 @@ describe("ListItem.vue", () => {
 
           saveButton.trigger("click");
           expect(wrapper.emitted("name-changed")).toBeTruthy();
-
-          //todo: check whether the new name is the parameter
         });
 
         it("ends edit mode without a change when cancel button is clicked", () => {
@@ -105,8 +101,6 @@ describe("ListItem.vue", () => {
           cancelButton.trigger("click");
           expect(wrapper.vm.$data.editMode).toBe(false);
           expect(nameBeforeCancel).toEqual(todo.name);
-
-          //todo: proper check of name change
         })
     })
 });

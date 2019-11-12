@@ -60,15 +60,16 @@ describe("List.vue", () => {
         });
 
         it("handles delete-clicked correctly", () => {
-            let todoToDelete: ToDo = wrapper.vm.$data.todos[0];
+            let allTodos: Array<ToDo> = wrapper.vm.$data.todos;
+            let todoToDelete: ToDo = allTodos[0];
             let items = wrapper.findAll(ListItem);
             let itemToDelete = items.at(0);
             itemToDelete.vm.$emit("delete-clicked", todoToDelete.id);
+            let todosAfterDelete: Array<ToDo> = wrapper.vm.$data.todos;
 
-            expect(wrapper.vm.$data.todos).toBeTruthy();
-            expect(wrapper.vm.$data.todos.length).toStrictEqual(2);
-
-            // todo: check if really the selected entry is gone
+            expect(todosAfterDelete).toBeTruthy();
+            expect(todosAfterDelete.length).toStrictEqual(2);
+            expect(todosAfterDelete.find((t) => t.id === todoToDelete.id)).toBeFalsy();
         });
 
         it("handles name-changed correctly", () => {
