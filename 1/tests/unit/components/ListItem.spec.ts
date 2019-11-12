@@ -87,7 +87,7 @@ describe("ListItem.vue", () => {
           expect(buttons.length).toStrictEqual(1);
         });
 
-        it("save button emits save event on click", () => {
+        it("emits save event when save button is clicked", () => {
           let buttons = wrapper.findAll("button");
           let saveButton = buttons.filter((btn) => btn.text().toLowerCase() === "save").at(0);
 
@@ -97,7 +97,7 @@ describe("ListItem.vue", () => {
           //todo: check whether the new name is the parameter
         });
 
-        it("cancel button ends edit mode without a change on click", () => {
+        it("ends edit mode without a change when cancel button is clicked", () => {
           let buttons = wrapper.findAll("button");
           let cancelButton = buttons.filter((btn) => btn.text().toLowerCase() === "cancel").at(0);
 
