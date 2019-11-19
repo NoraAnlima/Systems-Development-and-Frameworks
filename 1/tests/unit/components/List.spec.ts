@@ -1,4 +1,4 @@
-import {mount, shallowMount, Wrapper} from "@vue/test-utils"
+import {shallowMount, Wrapper} from "@vue/test-utils"
 import List from "@/components/List.vue"
 import ListItem from "@/components/ListItem.vue"
 import {ToDo} from "@/todo";
@@ -10,18 +10,19 @@ describe("List.vue", () => {
     describe("todo list is empty", () => {
 
         beforeEach(() => {
-            wrapper = mount(List);
+            wrapper = shallowMount(List);
         });
 
         it("renders an input field", () => {
-            expect(wrapper.find("input[name='new-todo-input']").exists()).toBe(true);
+            let inputField = wrapper.find("#new-todo-input");
+
+            expect(inputField.exists()).toBeTruthy();
         });
 
         it("renders an add button", () => {
-            let buttons = wrapper.findAll("button");
-            expect(buttons.length).toStrictEqual(1);
-            buttons = buttons.filter((btn) => btn.text().toLowerCase() === "add");
-            expect(buttons.length).toStrictEqual(1);
+            let addButton = wrapper.find("#add-button");
+
+            expect(addButton.exists()).toBeTruthy();
         });
 
         it("renders no todos", () => {
@@ -29,14 +30,12 @@ describe("List.vue", () => {
         });
 
         it("adds a new todo when add button is clicked", () => {
-            let inputField = <HTMLInputElement>wrapper.find("input[name='new-todo-input']").element;
-            let buttons = wrapper.findAll("button");
-            let addButton = buttons.filter((btn) => btn.text().toLowerCase() === "add").at(0);
-
             let newTodoName = "test todo";
-            //right appoach, but doesn't work for some reason
-            //inputField.value = newTodoName;
-            wrapper.vm.$data.newTodoName = newTodoName;
+
+            let inputField = wrapper.find("#new-todo-input");
+            let addButton = wrapper.find("#add-button");
+
+            inputField.setValue(newTodoName);
             addButton.trigger("click");
 
             expect(wrapper.contains(ListItem)).toBeTruthy();
@@ -48,50 +47,63 @@ describe("List.vue", () => {
         beforeEach(() => {
             wrapper = shallowMount(List);
 
-            wrapper.vm.$data.todos.push(new ToDo("do a todo"));
-            wrapper.vm.$data.todos.push(new ToDo("modify a todo"));
-            wrapper.vm.$data.todos.push(new ToDo("delete a todo"));
+            const todoNames: Array<string> = [
+                "do a todo",
+                "modify a todo",
+                "delete a todo"
+            ];
+
+            let inputField = wrapper.find("#new-todo-input");
+            let addButton = wrapper.find("#add-button");
+
+            for (let name in todoNames) {
+                inputField.setValue(name);
+                addButton.trigger("click")
+            }
         });
 
         it("renders 3 todos", () => {
             let listItems = wrapper.findAll(ListItem);
-            expect(listItems).toBeTruthy();
-            expect(listItems.length).toStrictEqual(3);
+
+            expect(listItems).toHaveLength(3);
         });
 
         it("handles delete-clicked correctly", () => {
-            let allTodos: Array<ToDo> = wrapper.vm.$data.todos;
-            let todoToDelete: ToDo = allTodos[0];
             let items = wrapper.findAll(ListItem);
             let itemToDelete = items.at(0);
-            itemToDelete.vm.$emit("delete-clicked", todoToDelete.id);
-            let todosAfterDelete: Array<ToDo> = wrapper.vm.$data.todos;
+            let todoToDelete: ToDo = itemToDelete.vm.$props.todo;
 
-            expect(todosAfterDelete).toBeTruthy();
-            expect(todosAfterDelete.length).toStrictEqual(2);
-            expect(todosAfterDelete.find((t) => t.id === todoToDelete.id)).toBeFalsy();
+            itemToDelete.vm.$emit("delete-clicked", todoToDelete.id);
+            let itemsAfterDelete = wrapper.findAll(ListItem);
+            let filteredItemsAfterDelete = itemsAfterDelete.filter(
+                (i) => i.vm.$props.todo.id === todoToDelete.id);
+
+            expect(itemsAfterDelete).toHaveLength(2);
+            expect(filteredItemsAfterDelete).toHaveLength(0);
         });
 
         it("handles name-changed correctly", () => {
-            let todoToModify: ToDo = wrapper.vm.$data.todos[0];
             let items = wrapper.findAll(ListItem);
             let itemToModify = items.at(0);
-            let changedTodoName = "changed ToDo name";
-            itemToModify.vm.$emit("name-changed", todoToModify.id, changedTodoName);
+            let todoToModify: ToDo = itemToModify.vm.$props.todo;
 
-            let modifiedTodo: ToDo = wrapper.vm.$data.todos[0];
-            expect(modifiedTodo.name).toStrictEqual(changedTodoName);
+            let changedTodoName = "changed ToDo name";
+            itemToModify.vm.$emit(
+                "name-changed", todoToModify.id, changedTodoName);
+
+            expect(todoToModify.name).toStrictEqual(changedTodoName);
         });
 
         it("handles done-changed correctly", () => {
-            let todoToModify: ToDo = wrapper.vm.$data.todos[1];
             let items = wrapper.findAll(ListItem);
             let itemToModify = items.at(1);
-            let changedDoneState = true;
-            itemToModify.vm.$emit("done-changed", todoToModify.id, changedDoneState);
+            let todoToModify: ToDo = itemToModify.vm.$props.todo;
 
-            let modifiedTodo: ToDo = wrapper.vm.$data.todos[1];
-            expect(modifiedTodo.done).toBe(changedDoneState);
+            let changedDoneState = true;
+            itemToModify.vm.$emit(
+                "done-changed", todoToModify.id, changedDoneState);
+
+            expect(todoToModify.done).toBe(changedDoneState);
         });
 
     });

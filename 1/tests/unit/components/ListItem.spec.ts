@@ -10,47 +10,54 @@ describe("ListItem.vue", () => {
         let wrapper: Wrapper<ListItem>;
 
         beforeEach(() => {
-          wrapper = shallowMount(ListItem, {
-            propsData: {todo: todo}
-          });
+            wrapper = shallowMount(ListItem, {
+                propsData: {todo: todo}
+            });
         });
 
         it("renders the checkbox", () => {
-            expect(wrapper.find("input[type='checkbox'][name='done']").exists()).toBe(true);
+            expect(wrapper.find("#done-checkbox").exists()).toBeTruthy();
+        });
+
+        it("doesn't apply the done css class to #name-text", () => {
+            let nameElement = wrapper.find("#name-text");
+
+            expect(nameElement.classes()).not.toContain("completed-todo-item");
         });
 
         it("renders the name (not editable)", () => {
-            expect(wrapper.find("p").text()).toStrictEqual(todo.name);
+            let nameElement = wrapper.find("#name-text");
+
+            expect(nameElement.text()).toStrictEqual(todo.name);
         });
 
         it("renders only two buttons", () => {
             let buttons = wrapper.findAll("button");
-            expect(buttons.length).toStrictEqual(2);
+
+            expect(buttons).toHaveLength(2);
         });
 
         it("renders delete button", () => {
-            let buttons = wrapper.findAll("button");
-            buttons = buttons.filter((btn) => btn.text().toLowerCase() === "delete");
-            expect(buttons.length).toStrictEqual(1);
+            let deleteButton = wrapper.find("#delete-button");
+
+            expect(deleteButton.exists()).toBeTruthy();
         });
 
         it("renders edit button", () => {
-            let buttons = wrapper.findAll("button");
-            buttons = buttons.filter((btn) => btn.text().toLowerCase() === "edit");
-            expect(buttons.length).toStrictEqual(1);
+            let editButton = wrapper.find("#edit-button");
+
+            expect(editButton.exists()).toBeTruthy();
         });
 
         it("edit button starts editmode on click", () => {
-            let buttons = wrapper.findAll("button");
-            let editButton = buttons.filter((btn) => btn.text().toLowerCase() === "edit").at(0);
+            let editButton = wrapper.find("#edit-button");
 
             editButton.trigger("click");
-            expect(wrapper.vm.$data.editMode).toBe(true);
+            expect(wrapper.find("#new-name-input").exists()).toBeTruthy();
         });
 
         it("delete button emits deletion event on click", () => {
-            let buttons = wrapper.findAll("button");
-            let deleteButton = buttons.filter((btn) => btn.text().toLowerCase() === "delete").at(0);
+            let deleteButton = wrapper.find("#delete-button");
 
             deleteButton.trigger("click");
             expect(wrapper.emitted("delete-clicked")).toBeTruthy();
@@ -63,44 +70,63 @@ describe("ListItem.vue", () => {
         let wrapper: Wrapper<ListItem>;
 
         beforeEach(() => {
-          wrapper = shallowMount(ListItem, {
-            propsData: {todo: todo}
-          });
-          wrapper.vm.$data.editMode = true;
+            wrapper = shallowMount(ListItem, {
+                propsData: {todo: todo}
+            });
+            let editButton = wrapper.find("#edit-button");
+            editButton.trigger("click");
         });
 
         it("renders input field", () => {
-            expect(wrapper.find("input[name='name']").exists()).toBe(true);
+            expect(wrapper.find("#new-name-input").exists()).toBeTruthy();
         });
 
         it("renders save button", () => {
-          let buttons = wrapper.findAll("button");
-          buttons = buttons.filter((btn) => btn.text().toLowerCase() === "save");
-          expect(buttons.length).toStrictEqual(1);
+            let saveButton = wrapper.find("#save-change-button");
+
+            expect(saveButton.exists()).toBeTruthy();
         });
 
         it("renders cancel button", () => {
-          let buttons = wrapper.findAll("button");
-          buttons = buttons.filter((btn) => btn.text().toLowerCase() === "cancel");
-          expect(buttons.length).toStrictEqual(1);
+            let cancelButton = wrapper.find("#cancel-change-button");
+
+            expect(cancelButton.exists()).toBeTruthy();
         });
 
         it("emits save event when save button is clicked", () => {
-          let buttons = wrapper.findAll("button");
-          let saveButton = buttons.filter((btn) => btn.text().toLowerCase() === "save").at(0);
+            let saveButton = wrapper.find("#save-change-button");
+            saveButton.trigger("click");
 
-          saveButton.trigger("click");
-          expect(wrapper.emitted("name-changed")).toBeTruthy();
+            expect(wrapper.emitted("name-changed")).toBeTruthy();
         });
 
         it("ends edit mode without a change when cancel button is clicked", () => {
-          let buttons = wrapper.findAll("button");
-          let cancelButton = buttons.filter((btn) => btn.text().toLowerCase() === "cancel").at(0);
+            let cancelButton = wrapper.find("#cancel-change-button");
+            let nameBeforeCancel = todo.name;
+            cancelButton.trigger("click");
 
-          let nameBeforeCancel = todo.name;
-          cancelButton.trigger("click");
-          expect(wrapper.vm.$data.editMode).toBe(false);
-          expect(nameBeforeCancel).toEqual(todo.name);
-        })
-    })
+            expect(wrapper.find("#new-name-input").exists()).toBeFalsy();
+            expect(nameBeforeCancel).toEqual(todo.name);
+        });
+    });
+
+    describe("given a completed todo", () => {
+
+        const todo = new ToDo("test");
+        todo.done = true;
+        let wrapper: Wrapper<ListItem>;
+
+        beforeEach(() => {
+            wrapper = shallowMount(ListItem, {
+                propsData: {todo: todo}
+            });
+        });
+
+        it("applies the correct css class (completed-todo-item) to #name-text", () => {
+            let nameElement = wrapper.find("#name-text");
+
+            expect(nameElement.classes()).toContain("completed-todo-item");
+        });
+    });
+
 });
