@@ -2,7 +2,7 @@ language: node_js
 node_js:
     - "stable"
 before_script:
-    - cd ./1/
+    - cd ./todo-list/
     - yarn install
 script:
     - yarn test:unit 
