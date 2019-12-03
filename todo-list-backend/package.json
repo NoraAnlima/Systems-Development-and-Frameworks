@@ -1,0 +1,37 @@
+{
+  "name": "todo-list-backend",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "webpack",
+    "test:unit": "jest ./tests"
+  },
+  "private": true,
+  "license": "MIT",
+  "dependencies": {
+    "apollo-server": "^2.9.12",
+    "bcrypt": "^3.0.7",
+    "graphql": "^14.5.8",
+    "graphql-middleware": "^4.0.2",
+    "graphql-shield": "^7.0.4",
+    "graphql-tools": "^4.0.6",
+    "jsonwebtoken": "^8.5.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.7.4",
+    "@babel/preset-env": "^7.7.4",
+    "@babel/preset-typescript": "^7.7.4",
+    "@types/bcrypt": "^3.0.0",
+    "@types/jest": "^24.0.23",
+    "@types/jsonwebtoken": "^8.3.5",
+    "@types/node": "^12.12.14",
+    "apollo-server-testing": "^2.9.12",
+    "babel-jest": "^24.9.0",
+    "babel-loader": "^8.0.6",
+    "jest": "^24.9.0",
+    "ts-loader": "^6.2.1",
+    "typescript": "^3.7.2",
+    "webpack": "^4.41.2",
+    "webpack-cli": "^3.3.10",
+    "webpack-node-externals": "^1.7.2"
+  }
+}
