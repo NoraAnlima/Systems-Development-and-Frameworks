@@ -86,7 +86,13 @@ export class InMemoryStorage implements IStorage {
     }
 
     readTodo(assignee: User, id: number): ToDo {
-        return this.readTodos(assignee).find((t) => t.id === id);
+        let todo = this.readTodos(assignee).find((t) => t.id === id);
+
+        if(!todo){
+            return null;
+        }
+
+        return todo;
     }
 
     readTodos(assignee: User): Array<ToDo> {

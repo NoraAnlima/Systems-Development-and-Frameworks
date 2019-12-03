@@ -25,6 +25,7 @@ export function buildPermissions(schema: GraphQLSchema, tokenSecret: string,
             Mutation: {
                 "*": isAuthenticated,
                 login: allow,
+                createUser: allow
             }
         },
         {

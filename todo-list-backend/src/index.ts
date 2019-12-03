@@ -7,14 +7,6 @@ import {User} from "./types";
 import {InMemoryStorage, IStorage} from "./data"
 import {buildPermissions} from "./permissions";
 
-let storage: IStorage = new InMemoryStorage(
-    [
-        new User("ralph", "ralph"),
-        new User("nora", "nora")
-    ]
-);
-let authSecret: string = "This is a ridiculously good secret!";
-
 const typeDefs = gql`
     type User {
         name: String
@@ -41,50 +33,53 @@ const typeDefs = gql`
     }
 `;
 
-const resolvers = {
-    Query: {
-        readTodos: (parent: any, args: any, context: any, info: any) => {
-            let user: User = context.user;
-            return storage.readTodos(user);
+function buildResolvers(storage: IStorage, authSecret: string): any {
+    return {
+        Query: {
+            readTodos: (parent: any, args: any, context: any, info: any) => {
+                let user: User = context.user;
+                return storage.readTodos(user);
+            },
         },
-    },
 
-    Mutation: {
-        login: (parent: any, args: any, context: any, info: any) => {
-            let user = storage.readUser(args.name);
+        Mutation: {
+            login: (parent: any, args: any, context: any, info: any) => {
+                let user = storage.readUser(args.name);
 
-            if (!user || !user.checkPassword(args.password)) {
-                return null;
+                if (!user || !user.checkPassword(args.password)) {
+                    return null;
+                }
+
+                let payload = {
+                    username: user.name
+                };
+
+                return sign(payload, authSecret, {expiresIn: "1 day"});
+            },
+            createTodo: (parent: any, args: any, context: any, info: any) => {
+                let user: User = context.user;
+                return storage.createTodo(user, args.name);
+            },
+            updateTodoName: (parent: any, args: any, context: any, info: any) => {
+                return storage.updateTodoName(context.user, args.id, args.name);
+            },
+            updateTodoDone: (parent: any, args: any, context: any, info: any) => {
+                return storage.updateTodoDone(context.user, args.id, args.done);
+            },
+            deleteTodo: (parent: any, args: any, context: any, info: any) => {
+                return storage.deleteTodo(context.user, args.id);
+            },
+            createUser: (parent: any, args: any, context: any, info: any) => {
+                return storage.createUser(args.name, args.password);
             }
-
-            let payload = {
-                username: user.name
-            };
-
-            return sign(payload, authSecret, {expiresIn: "1 day"});
-        },
-        createTodo: (parent: any, args: any, context: any, info: any) => {
-            let user: User = context.user;
-            return storage.createTodo(user, args.name);
-        },
-        updateTodoName: (parent: any, args: any, context: any, info: any) => {
-            return storage.updateTodoName(context.user, args.id, args.name);
-        },
-        updateTodoDone: (parent: any, args: any, context: any, info: any) => {
-            return storage.updateTodoDone(context.user, args.id, args.done);
-        },
-        deleteTodo: (parent: any, args: any, context: any, info: any) => {
-            return storage.deleteTodo(context.user, args.id);
-        },
-        createUser: (parent: any, args: any, context: any, info: any) => {
-            return storage.createUser(args.name, args.password);
         }
     }
-};
+}
 
 export function buildApolloServer(storage: IStorage, authSecret: string,
-                                  debugMode: boolean = false): ApolloServer {
+                                  debugMode: boolean = false, context?: any): ApolloServer {
 
+    const resolvers = buildResolvers(storage, authSecret);
     const schema = makeExecutableSchema({typeDefs, resolvers});
     const permissions = buildPermissions(schema, authSecret, debugMode);
     const finalizedSchema = applyMiddleware(schema, permissions);
@@ -92,6 +87,10 @@ export function buildApolloServer(storage: IStorage, authSecret: string,
     return new ApolloServer({
         schema: finalizedSchema,
         context: ({req}) => {
+            if (context) {
+                return context;
+            }
+
             let token: string = req.headers.authorization || "";
             let user: User = null;
             let decodedToken: any = decode(token, {complete: true});
@@ -108,13 +107,18 @@ export function buildApolloServer(storage: IStorage, authSecret: string,
     });
 }
 
-const server = buildApolloServer(storage, authSecret);
-server.listen().then(({url}) => {
-    console.log(`Server ready at ${url}`);
-});
+if (require.main === module) {
+    let storage: IStorage = new InMemoryStorage();
+    let authSecret: string = "This is a ridiculously good secret!";
+
+    const server = buildApolloServer(storage, authSecret);
+    server.listen().then(({url}) => {
+        console.log(`Server ready at ${url}`);
+    });
 
 // todo: add hot reloading
 //if (module.hot) {
 //    module.hot.accept();
 //    module.hot.dispose(() => server.stop());
 //}
+}
