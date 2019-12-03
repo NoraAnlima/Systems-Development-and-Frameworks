@@ -2,7 +2,8 @@
   "name": "todo-list-backend",
   "version": "1.0.0",
   "scripts": {
-    "build": "webpack",
+    "build:dev": "webpack --config webpack.config.development.js",
+    "serve": "webpack --config webpack.config.development.js && node dist/main.js",
     "test:unit": "jest ./tests"
   },
   "private": true,
@@ -21,6 +22,7 @@
     "@babel/preset-env": "^7.7.4",
     "@babel/preset-typescript": "^7.7.4",
     "@types/bcrypt": "^3.0.0",
+    "@types/graphql": "^14.5.0",
     "@types/jest": "^24.0.23",
     "@types/jsonwebtoken": "^8.3.5",
     "@types/node": "^12.12.14",
