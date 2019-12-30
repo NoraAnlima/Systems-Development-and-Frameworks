@@ -1,9 +1,10 @@
 language: node_js
 node_js:
     - "stable"
-before_script:
-    - cd ./todo-list/
-    - yarn install
+install:
+    - yarn --cwd ./todo-list install
+    - yarn --cwd ./todo-list-backend install
 script:
-    - yarn test:unit 
-    - yarn lint 
+    - yarn --cwd ./todo-list test:unit
+    - yarn --cwd ./todo-list lint
+    - yarn --cwd ./todo-list-backend test:integration
