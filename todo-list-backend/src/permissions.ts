@@ -8,13 +8,8 @@ export function buildPermissions(schema: GraphQLSchema, tokenSecret: string,
                                  debugMode: boolean = false): any {
 
     const isAuthenticated = rule()(async (parent, args, context, info) => {
-        try {
-            let token = verify(context.token, tokenSecret);
-        } catch (e) {
-            return false;
-        }
-
-        return true;
+        const {user} = context;
+        return user !== null && user !== undefined;
     });
 
     return shield(

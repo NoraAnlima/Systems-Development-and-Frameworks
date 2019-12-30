@@ -1,4 +1,4 @@
-import {ToDo, User} from "./types";
+import {ToDo, User, UserInputError} from "./types";
 
 export interface IStorage {
     createUser(name: string, password: string): User;
@@ -13,9 +13,7 @@ export interface IStorage {
 
     readTodo(assignee: User, id: number): ToDo;
 
-    updateTodoName(assignee: User, id: number, newName: string): ToDo;
-
-    updateTodoDone(assignee: User, id: number, newDone: boolean): ToDo;
+    updateTodo(assignee: User, id: number, newName: string, newDone: boolean): ToDo;
 
     deleteTodo(assignee: User, id: number): ToDo;
 }
@@ -40,7 +38,7 @@ export class InMemoryStorage implements IStorage {
             for (let todo of initialTodos) {
                 if (!this.todosByUser.has(todo.assignee.name)) {
                     throw new ReferenceError(
-                        `intialTodos contains a user (${todo.assignee}) which is not present in initial users!`)
+                        `intialTodos contains a user (${todo.assignee}) which is not present in initial users!`);
                 }
 
                 this.todosByUser.get(todo.assignee.name).push(todo);
@@ -61,7 +59,7 @@ export class InMemoryStorage implements IStorage {
 
     createUser(name: string, password: string): User {
         if (this.userByName.has(name)) {
-            return null;
+            throw new UserInputError(`Username (${name}) is already taken!`);
         }
 
         let user = new User(name, password);
@@ -111,25 +109,21 @@ export class InMemoryStorage implements IStorage {
         return Array.from(this.userByName.values());
     }
 
-    updateTodoDone(assignee: User, id: number, newDone: boolean): ToDo {
+    updateTodo(assignee: User, id: number, newName: string, newDone: boolean): ToDo {
         let todo = this.readTodo(assignee, id);
 
         if (!todo) {
             return null;
         }
 
-        todo.done = newDone;
-        return todo;
-    }
-
-    updateTodoName(assignee: User, id: number, newName: string): ToDo {
-        let todo = this.readTodo(assignee, id);
-
-        if (!todo) {
-            return null;
+        if (newName !== undefined && newName !== null) {
+            todo.name = newName;
         }
 
-        todo.name = newName;
+        if (newDone !== undefined && newDone !== null) {
+            todo.done = newDone;
+        }
+
         return todo;
     }
 }

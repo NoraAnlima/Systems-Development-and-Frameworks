@@ -1,4 +1,4 @@
-import {decode, sign} from "jsonwebtoken";
+import {decode, sign, verify} from "jsonwebtoken";
 import {applyMiddleware} from "graphql-middleware";
 import {ApolloServer, gql} from "apollo-server";
 import {makeExecutableSchema} from "graphql-tools";
@@ -26,8 +26,7 @@ const typeDefs = gql`
     type Mutation {
         login(name: String!, password: String!): String
         createTodo(name: String!): ToDo
-        updateTodoName(id: Int!, name: String!): ToDo
-        updateTodoDone(id: Int!, done: Boolean!): ToDo
+        updateTodo(id: Int!, name: String, done: Boolean): ToDo
         deleteTodo(id: Int!): ToDo
         createUser(name: String! password: String!): User
     }
@@ -60,11 +59,8 @@ function buildResolvers(storage: IStorage, authSecret: string): any {
                 let user: User = context.user;
                 return storage.createTodo(user, args.name);
             },
-            updateTodoName: (parent: any, args: any, context: any, info: any) => {
-                return storage.updateTodoName(context.user, args.id, args.name);
-            },
-            updateTodoDone: (parent: any, args: any, context: any, info: any) => {
-                return storage.updateTodoDone(context.user, args.id, args.done);
+            updateTodo: (parent: any, args: any, context: any, info: any) => {
+                return storage.updateTodo(context.user, args.id, args.name, args.done);
             },
             deleteTodo: (parent: any, args: any, context: any, info: any) => {
                 return storage.deleteTodo(context.user, args.id);
@@ -93,7 +89,7 @@ export function buildApolloServer(storage: IStorage, authSecret: string,
 
             let token: string = req.headers.authorization || "";
             let user: User = null;
-            let decodedToken: any = decode(token, {complete: true});
+            let decodedToken: any = verify(token, authSecret, {complete: true});
             if (decodedToken) {
                 let username = decodedToken.payload.username;
                 user = storage.readUser(username);

@@ -21,17 +21,9 @@ const CREATE_TODO = gql`
     }
 `;
 
-const UPDATE_TODO_NAME = gql`
-    mutation UpdateTodoName($id: Int!, $name: String!) {
-        updateTodoName(id: $id, name: $name) {
-            id name done assignee { name }
-        }
-    }
-`;
-
-const UPDATE_TODO_DONE = gql`
-    mutation UpdateTodoDone($id: Int!, $done: Boolean!) {
-        updateTodoDone(id: $id, done: $done)  {
+const UPDATE_TODO = gql`
+    mutation UpdateTodoName($id: Int!, $name: String, $done: Boolean) {
+        updateTodo(id: $id, name: $name, done: $done) {
             id name done assignee { name }
         }
     }
@@ -72,29 +64,43 @@ function buildTwoUserInMemoryStorage(addTodos: boolean = false): IStorage {
 
 }
 
-describe("query", () => {
+function serverSetup(addTodos: boolean, authorizeUser: boolean) {
     const authSecret: string = "This is a perfect secret for testing!";
+    let storage = buildTwoUserInMemoryStorage(addTodos);
+
+    let user = storage.readUser("ralph");
+    let context;
+    if (authorizeUser) {
+        let token = sign({username: user.name}, authSecret, {expiresIn: "1 day"});
+        context = {token: token, user: user};
+    } else {
+        context = {token: "I'm not a valid token"};
+    }
+
+    let testServer = buildApolloServer(
+        storage,
+        authSecret,
+        false,
+        context);
+
+    let {query, mutate} = createTestClient(testServer);
+
+    return {storage, user, query, mutate};
+}
+
+describe("query", () => {
     let user: User;
     let storage: IStorage;
     let query: any;
     let mutate: any;
 
-
     describe("given a legit authorization token", () => {
         beforeEach(async () => {
-            storage = buildTwoUserInMemoryStorage(true);
-
-            // workaround for the shortcomings of the apollo-server-testing
-            // package as it doesn't generate a real request and therefor a
-            // "real" context will never be generated
-            user = storage.readUser("ralph");
-            const token = sign({username: user.name}, authSecret, {expiresIn: "1 day"});
-            const context = {token: token, user: user};
-
-            const testServer = buildApolloServer(storage, authSecret, false, context);
-            const testClient = createTestClient(testServer);
-            query = testClient.query;
-            mutate = testClient.mutate;
+            let setup = serverSetup(true, true);
+            storage = setup.storage;
+            user = setup.user;
+            query = setup.query;
+            mutate = setup.mutate;
         });
 
         describe("readTodos", () => {
@@ -109,15 +115,11 @@ describe("query", () => {
     });
     describe("given a random authorization token", () => {
         beforeEach(async () => {
-            storage = buildTwoUserInMemoryStorage(true);
-
-            const context = {token: "I'm not a valid token"};
-
-            const testServer = buildApolloServer(storage, authSecret, false, context);
-
-            const testClient = createTestClient(testServer);
-            query = testClient.query;
-            mutate = testClient.mutate;
+            let setup = serverSetup(true, false);
+            storage = setup.storage;
+            user = setup.user;
+            query = setup.query;
+            mutate = setup.mutate;
         });
 
         describe("readTodos", () => {
@@ -134,12 +136,8 @@ describe("query", () => {
 });
 
 describe("mutate", () => {
-    const authSecret: string = "This is a perfect secret for testing!";
-
     describe("given correct user credentials", () => {
-        const storage: IStorage = buildTwoUserInMemoryStorage();
-        const testServer = buildApolloServer(storage, authSecret, false, {});
-        const {query, mutate} = createTestClient(testServer);
+        const {mutate} = serverSetup(false, false);
 
         describe("login", () => {
             it("returns a jwt", async () => {
@@ -151,15 +149,13 @@ describe("mutate", () => {
                     }
                 });
 
-                expect(tokenResponse.data.login).toBeDefined();
+                expect(tokenResponse.data.login).toEqual(expect.any(String));
             });
         });
     });
 
     describe("given wrong user credentials", () => {
-        const storage: IStorage = buildTwoUserInMemoryStorage();
-        const testServer = buildApolloServer(storage, authSecret, false, {});
-        const {query, mutate} = createTestClient(testServer);
+        const {mutate} = serverSetup(false, false);
 
         describe("login", () => {
             it("returns null", async () => {
@@ -183,20 +179,11 @@ describe("mutate", () => {
         let mutate: any;
 
         beforeEach(async () => {
-            storage = buildTwoUserInMemoryStorage();
-
-            // workaround for the shortcomings of the apollo-server-testing
-            // package as it doesn't generate a real request and therefor a
-            // "real" context will never be generated
-            user = storage.readUser("ralph");
-            const token = sign({username: user.name}, authSecret, {expiresIn: "1 day"});
-            const context = {token: token, user: user};
-
-            const testServer = buildApolloServer(storage, authSecret, false, context);
-
-            const testClient = createTestClient(testServer);
-            query = testClient.query;
-            mutate = testClient.mutate;
+            let setup = serverSetup(false, true);
+            storage = setup.storage;
+            user = setup.user;
+            query = setup.query;
+            mutate = setup.mutate;
         });
 
         describe("createTodo", () => {
@@ -248,7 +235,7 @@ describe("mutate", () => {
             describe("updateTodoName", () => {
                 it("changes the todo in storage", async () => {
                     let response = await mutate({
-                        mutation: UPDATE_TODO_NAME,
+                        mutation: UPDATE_TODO,
                         variables: {id: todo.id, name: "updated todo"}
                     });
 
@@ -257,27 +244,27 @@ describe("mutate", () => {
 
                 it("returns the changed todo", async () => {
                     let response = await mutate({
-                        mutation: UPDATE_TODO_NAME,
+                        mutation: UPDATE_TODO,
                         variables: {id: todo.id, name: "updated todo"}
                     });
 
-                    expect(response.data.updateTodoName).toMatchObject({name: "updated todo"});
+                    expect(response.data.updateTodo).toMatchObject({name: "updated todo"});
                 });
 
                 it("returns null on invalid id", async () => {
                     let response = await mutate({
-                        mutation: UPDATE_TODO_NAME,
+                        mutation: UPDATE_TODO,
                         variables: {id: -10, name: "should not work"}
                     });
 
-                    expect(response.data.updateTodoName).toBeNull();
+                    expect(response.data.updateTodo).toBeNull();
                 });
             });
 
             describe("updateTodoDone", () => {
                 it("changes the todo in storage", async () => {
                     let response = await mutate({
-                        mutation: UPDATE_TODO_DONE,
+                        mutation: UPDATE_TODO,
                         variables: {id: todo.id, done: true}
                     });
 
@@ -286,20 +273,20 @@ describe("mutate", () => {
 
                 it("returns the changed todo", async () => {
                     let response = await mutate({
-                        mutation: UPDATE_TODO_DONE,
+                        mutation: UPDATE_TODO,
                         variables: {id: todo.id, done: true}
                     });
 
-                    expect(response.data.updateTodoDone).toMatchObject({done: true});
+                    expect(response.data.updateTodo).toMatchObject({done: true});
                 });
 
                 it("returns null on invalid id", async () => {
                     let response = await mutate({
-                        mutation: UPDATE_TODO_DONE,
+                        mutation: UPDATE_TODO,
                         variables: {id: -10, done: true}
                     });
 
-                    expect(response.data.updateTodoDone).toBeNull();
+                    expect(response.data.updateTodo).toBeNull();
                 });
             });
 
@@ -351,18 +338,18 @@ describe("mutate", () => {
            describe("updateTodoName", () => {
                it("returns null", async () => {
                    let response = await mutate({
-                       mutation: UPDATE_TODO_NAME,
+                       mutation: UPDATE_TODO,
                        variables: {id: todoFromOtherUser.id, name: "new todo name"}
                    });
 
-                   expect(response.data.updateTodoName).toBeNull();
+                   expect(response.data.updateTodo).toBeNull();
                });
 
                it("doesn't change the todo in storage", async () => {
                    let oldTodoName = storage.readTodo(otherUser, todoFromOtherUser.id).name;
 
                    let response = await mutate({
-                       mutation: UPDATE_TODO_NAME,
+                       mutation: UPDATE_TODO,
                        variables: {id: todoFromOtherUser.id, name: "new todo name"}
                    });
 
@@ -373,16 +360,16 @@ describe("mutate", () => {
            describe("updateTodoDone", () => {
                it("returns null", async () => {
                    let response = await mutate({
-                       mutation: UPDATE_TODO_DONE,
+                       mutation: UPDATE_TODO,
                        variables: {id: todoFromOtherUser.id, done: true}
                    });
 
-                   expect(response.data.updateTodoDone).toBeNull();
+                   expect(response.data.updateTodo).toBeNull();
                });
 
                it("doesn't change the todo in storage", async () => {
                    let response = await mutate({
-                       mutation: UPDATE_TODO_DONE,
+                       mutation: UPDATE_TODO,
                        variables: {id: todoFromOtherUser.id, done: true}
                    });
 
@@ -438,15 +425,10 @@ describe("mutate", () => {
         let mutate: any;
 
         beforeEach(async () => {
-            storage = buildTwoUserInMemoryStorage(true);
-
-            const context = {token: "I'm not a valid token"};
-
-            const testServer = buildApolloServer(storage, authSecret, false, context);
-
-            const testClient = createTestClient(testServer);
-            query = testClient.query;
-            mutate = testClient.mutate;
+            let setup = serverSetup(true, false);
+            storage = setup.storage;
+            query = setup.query;
+            mutate = setup.mutate;
         });
 
         describe("createTodo", () => {
@@ -458,7 +440,7 @@ describe("mutate", () => {
                     }
                 });
 
-                expect(response.errors).toHaveLength(1);
+                expect(response).toMatchObject({errors: [{message: "Not Authorised!"}]});
                 expect(response.data.createTodo).toBeNull();
             });
         });
@@ -466,30 +448,30 @@ describe("mutate", () => {
         describe("updateTodoName", () => {
             it("raises an error", async () => {
                 let response = await mutate({
-                    mutation: UPDATE_TODO_NAME,
+                    mutation: UPDATE_TODO,
                     variables: {
                         id: storage.readTodos(storage.readUser("nora"))[0].id,
                         name: "new todo name"
                     }
                 });
 
-                expect(response.errors).toHaveLength(1);
-                expect(response.data.updateTodoName).toBeNull();
+                expect(response).toMatchObject({errors: [{message: "Not Authorised!"}]});
+                expect(response.data.updateTodo).toBeNull();
             });
         });
 
         describe("updateTodoDone", () => {
             it("raises an error", async () => {
                 let response = await mutate({
-                    mutation: UPDATE_TODO_DONE,
+                    mutation: UPDATE_TODO,
                     variables: {
                         id: storage.readTodos(storage.readUser("nora"))[0].id,
                         done: true
                     }
                 });
 
-                expect(response.errors).toHaveLength(1);
-                expect(response.data.updateTodoDone).toBeNull();
+                expect(response).toMatchObject({errors: [{message: "Not Authorised!"}]});
+                expect(response.data.updateTodo).toBeNull();
             });
         });
 
@@ -502,7 +484,7 @@ describe("mutate", () => {
                     }
                 });
 
-                expect(response.errors).toHaveLength(1);
+                expect(response).toMatchObject({errors: [{message: "Not Authorised!"}]});
                 expect(response.data.deleteTodo).toBeNull();
             });
         });
