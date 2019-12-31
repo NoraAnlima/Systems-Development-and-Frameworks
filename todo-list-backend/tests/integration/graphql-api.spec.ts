@@ -1,6 +1,6 @@
 import {buildApolloServer} from "../../src";
 import {InMemoryStorage, IStorage} from "../../src/data";
-import {User, ToDo} from "../../src/types";
+import {User, ToDo, UserInputError} from "../../src/types";
 import {ApolloServerTestClient, createTestClient} from "apollo-server-testing";
 import {gql} from "apollo-server";
 import {sign} from "jsonwebtoken";
@@ -64,11 +64,11 @@ function buildTwoUserInMemoryStorage(addTodos: boolean = false): IStorage {
 
 }
 
-function serverSetup(addTodos: boolean, authorizeUser: boolean) {
+async function serverSetup(addTodos: boolean, authorizeUser: boolean) {
     const authSecret: string = "This is a perfect secret for testing!";
     let storage = buildTwoUserInMemoryStorage(addTodos);
 
-    let user = storage.readUser("ralph");
+    let user = await storage.readUser("ralph");
     let context;
     if (authorizeUser) {
         let token = sign({username: user.name}, authSecret, {expiresIn: "1 day"});
@@ -96,7 +96,7 @@ describe("query", () => {
 
     describe("given a legit authorization token", () => {
         beforeEach(async () => {
-            let setup = serverSetup(true, true);
+            let setup = await serverSetup(true, true);
             storage = setup.storage;
             user = setup.user;
             query = setup.query;
@@ -115,7 +115,7 @@ describe("query", () => {
     });
     describe("given a random authorization token", () => {
         beforeEach(async () => {
-            let setup = serverSetup(true, false);
+            let setup = await serverSetup(true, false);
             storage = setup.storage;
             user = setup.user;
             query = setup.query;
@@ -137,7 +137,12 @@ describe("query", () => {
 
 describe("mutate", () => {
     describe("given correct user credentials", () => {
-        const {mutate} = serverSetup(false, false);
+        let mutate: any;
+
+        beforeEach(async () => {
+            let setup = await serverSetup(false, true);
+            mutate = setup.mutate;
+        });
 
         describe("login", () => {
             it("returns a jwt", async () => {
@@ -155,7 +160,12 @@ describe("mutate", () => {
     });
 
     describe("given wrong user credentials", () => {
-        const {mutate} = serverSetup(false, false);
+        let mutate: any;
+
+        beforeEach(async () => {
+            let setup = await serverSetup(false, true);
+            mutate = setup.mutate;
+        });
 
         describe("login", () => {
             it("returns null", async () => {
@@ -179,7 +189,7 @@ describe("mutate", () => {
         let mutate: any;
 
         beforeEach(async () => {
-            let setup = serverSetup(false, true);
+            let setup = await serverSetup(false, true);
             storage = setup.storage;
             user = setup.user;
             query = setup.query;
@@ -188,7 +198,7 @@ describe("mutate", () => {
 
         describe("createTodo", () => {
             it("adds the new todo into storage", async () => {
-                expect(storage.readTodos(user)).toHaveLength(0);
+                expect(await storage.readTodos(user)).toHaveLength(0);
 
                 let response = await mutate({
                     mutation: CREATE_TODO,
@@ -197,7 +207,7 @@ describe("mutate", () => {
                     }
                 });
 
-                expect(storage.readTodos(user)).toHaveLength(1);
+                expect(await storage.readTodos(user)).toHaveLength(1);
             });
 
             it("returns a new todo", async () => {
@@ -229,7 +239,7 @@ describe("mutate", () => {
             beforeEach(async () => {
                 let response = await mutate(
                     {mutation: CREATE_TODO, variables: {name: "unedited todo"}});
-                todo = storage.readTodo(user, response.data.createTodo.id);
+                todo = await storage.readTodo(user, response.data.createTodo.id);
             });
 
             describe("updateTodoName", () => {
@@ -239,7 +249,9 @@ describe("mutate", () => {
                         variables: {id: todo.id, name: "updated todo"}
                     });
 
-                    expect(storage.readTodo(user, todo.id).name).toBe("updated todo");
+                    let changedTodo = await storage.readTodo(user, todo.id);
+
+                    expect(changedTodo.name).toBe("updated todo");
                 });
 
                 it("returns the changed todo", async () => {
@@ -268,7 +280,9 @@ describe("mutate", () => {
                         variables: {id: todo.id, done: true}
                     });
 
-                    expect(storage.readTodo(user, todo.id).done).toBeTruthy();
+                    let changedTodo = await storage.readTodo(user, todo.id);
+
+                    expect(changedTodo.done).toBeTruthy();
                 });
 
                 it("returns the changed todo", async () => {
@@ -299,7 +313,7 @@ describe("mutate", () => {
                         }
                     });
 
-                    expect(storage.readTodo(user, todo.id)).toBeNull();
+                    expect(storage.readTodo(user, todo.id)).rejects.toThrow(Error);
                 });
 
                 it("returns the removed todo", async () => {
@@ -331,8 +345,8 @@ describe("mutate", () => {
             let otherUser: User;
 
             beforeEach(async () => {
-                otherUser = storage.readUser("nora");
-                todoFromOtherUser = storage.createTodo(otherUser, "my todo is protected");
+                otherUser = await storage.readUser("nora");
+                todoFromOtherUser = await storage.createTodo(otherUser, "my todo is protected");
             });
 
            describe("updateTodoName", () => {
@@ -346,14 +360,16 @@ describe("mutate", () => {
                });
 
                it("doesn't change the todo in storage", async () => {
-                   let oldTodoName = storage.readTodo(otherUser, todoFromOtherUser.id).name;
+                   let oldTodoName = (await storage.readTodo(otherUser, todoFromOtherUser.id)).name;
 
                    let response = await mutate({
                        mutation: UPDATE_TODO,
                        variables: {id: todoFromOtherUser.id, name: "new todo name"}
                    });
 
-                   expect(storage.readTodo(otherUser, todoFromOtherUser.id).name).toEqual(oldTodoName);
+                   let notChangedTodo = await storage.readTodo(otherUser, todoFromOtherUser.id);
+
+                   expect(notChangedTodo.name).toEqual(oldTodoName);
                });
            });
 
@@ -373,7 +389,9 @@ describe("mutate", () => {
                        variables: {id: todoFromOtherUser.id, done: true}
                    });
 
-                   expect(storage.readTodo(otherUser, todoFromOtherUser.id).done).toBeFalsy();
+                   let notChangedTodo = await storage.readTodo(otherUser, todoFromOtherUser.id);
+
+                   expect(notChangedTodo.done).toBeFalsy();
                });
            });
 
@@ -414,7 +432,7 @@ describe("mutate", () => {
                     }
                 });
 
-                expect(storage.readUser(userName)).toMatchObject({name: userName});
+                expect(await storage.readUser(userName)).toMatchObject({name: userName});
             });
         });
     });
@@ -425,7 +443,7 @@ describe("mutate", () => {
         let mutate: any;
 
         beforeEach(async () => {
-            let setup = serverSetup(true, false);
+            let setup = await serverSetup(true, false);
             storage = setup.storage;
             query = setup.query;
             mutate = setup.mutate;
@@ -447,10 +465,13 @@ describe("mutate", () => {
 
         describe("updateTodoName", () => {
             it("raises an error", async () => {
+                let userWithTodo = await storage.readUser("nora");
+                let todoToChange = (await storage.readTodos(userWithTodo))[0];
+
                 let response = await mutate({
                     mutation: UPDATE_TODO,
                     variables: {
-                        id: storage.readTodos(storage.readUser("nora"))[0].id,
+                        id: todoToChange.id,
                         name: "new todo name"
                     }
                 });
@@ -462,10 +483,13 @@ describe("mutate", () => {
 
         describe("updateTodoDone", () => {
             it("raises an error", async () => {
+                let userWithTodo = await storage.readUser("nora");
+                let todoToChange = (await storage.readTodos(userWithTodo))[0];
+
                 let response = await mutate({
                     mutation: UPDATE_TODO,
                     variables: {
-                        id: storage.readTodos(storage.readUser("nora"))[0].id,
+                        id: todoToChange.id,
                         done: true
                     }
                 });
@@ -477,10 +501,13 @@ describe("mutate", () => {
 
         describe("deleteTodo", () => {
             it("raises an error", async () => {
+                let userWithTodo = await storage.readUser("nora");
+                let todoToDelete = (await storage.readTodos(userWithTodo))[0];
+
                 let response = await mutate({
                     mutation: DELETE_TODO,
                     variables: {
-                        id: storage.readTodos(storage.readUser("nora"))[0].id
+                        id: todoToDelete.id
                     }
                 });
 
@@ -501,7 +528,7 @@ describe("mutate", () => {
                     }
                 });
 
-                expect(storage.readUser(userName)).toMatchObject({name: userName});
+                expect(await storage.readUser(userName)).toMatchObject({name: userName});
             });
         });
     });

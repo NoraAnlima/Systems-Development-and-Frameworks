@@ -35,15 +35,15 @@ const typeDefs = gql`
 function buildResolvers(storage: IStorage, authSecret: string): any {
     return {
         Query: {
-            readTodos: (parent: any, args: any, context: any, info: any) => {
+            readTodos: async (parent: any, args: any, context: any, info: any) => {
                 let user: User = context.user;
-                return storage.readTodos(user);
+                return await storage.readTodos(user);
             },
         },
 
         Mutation: {
-            login: (parent: any, args: any, context: any, info: any) => {
-                let user = storage.readUser(args.name);
+            login: async (parent: any, args: any, context: any, info: any) => {
+                let user = await storage.readUser(args.name);
 
                 if (!user || !user.checkPassword(args.password)) {
                     return null;
@@ -55,18 +55,18 @@ function buildResolvers(storage: IStorage, authSecret: string): any {
 
                 return sign(payload, authSecret, {expiresIn: "1 day"});
             },
-            createTodo: (parent: any, args: any, context: any, info: any) => {
+            createTodo: async (parent: any, args: any, context: any, info: any) => {
                 let user: User = context.user;
-                return storage.createTodo(user, args.name);
+                return await storage.createTodo(user, args.name);
             },
-            updateTodo: (parent: any, args: any, context: any, info: any) => {
-                return storage.updateTodo(context.user, args.id, args.name, args.done);
+            updateTodo: async (parent: any, args: any, context: any, info: any) => {
+                return await storage.updateTodo(context.user, args.id, args.name, args.done);
             },
-            deleteTodo: (parent: any, args: any, context: any, info: any) => {
-                return storage.deleteTodo(context.user, args.id);
+            deleteTodo: async (parent: any, args: any, context: any, info: any) => {
+                return await storage.deleteTodo(context.user, args.id);
             },
-            createUser: (parent: any, args: any, context: any, info: any) => {
-                return storage.createUser(args.name, args.password);
+            createUser: async (parent: any, args: any, context: any, info: any) => {
+                return await storage.createUser(args.name, args.password);
             }
         }
     }
@@ -82,7 +82,7 @@ export function buildApolloServer(storage: IStorage, authSecret: string,
 
     return new ApolloServer({
         schema: finalizedSchema,
-        context: ({req}) => {
+        context: async ({req}) => {
             if (context) {
                 return context;
             }
@@ -92,7 +92,7 @@ export function buildApolloServer(storage: IStorage, authSecret: string,
             let decodedToken: any = verify(token, authSecret, {complete: true});
             if (decodedToken) {
                 let username = decodedToken.payload.username;
-                user = storage.readUser(username);
+                user = await storage.readUser(username);
             }
 
             return {

@@ -19,8 +19,16 @@ export class User {
         this._name = value;
     }
 
+    private get hashedPassword(): string {
+        return this._hashedPassword;
+    }
+
     public checkPassword(password: string): boolean {
-        return compareSync(password, this._hashedPassword);
+        return compareSync(password, this.hashedPassword);
+    }
+
+    public toPlainObj(): {name: string, hashedPassword: string} {
+        return {name: this.name, hashedPassword: this.hashedPassword};
     }
 }
 
@@ -65,6 +73,15 @@ export class ToDo {
 
     set name(value: string) {
         this._name = value;
+    }
+
+    public toPlainObj(): {id: number, assignee: {name: string, hashedPassword: string}, name: string, done: boolean} {
+        return {
+            id: this.id,
+            assignee: this.assignee.toPlainObj(),
+            name: this.name,
+            done: this.done
+        };
     }
 }
 

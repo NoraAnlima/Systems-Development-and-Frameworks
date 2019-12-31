@@ -1,21 +1,22 @@
 import {ToDo, User, UserInputError} from "./types";
+import {auth, Driver, driver} from "neo4j-driver"
 
 export interface IStorage {
-    createUser(name: string, password: string): User;
+    createUser(name: string, password: string): Promise<User>;
 
-    readUsers(): Array<User>;
+    readUsers(): Promise<Array<User>>;
 
-    readUser(name: string): User;
+    readUser(name: string): Promise<User>;
 
-    createTodo(assignee: User, name: string): ToDo;
+    createTodo(assignee: User, name: string): Promise<ToDo>;
 
-    readTodos(assignee: User): Array<ToDo>;
+    readTodos(assignee: User): Promise<Array<ToDo>>;
 
-    readTodo(assignee: User, id: number): ToDo;
+    readTodo(assignee: User, id: number): Promise<ToDo>;
 
-    updateTodo(assignee: User, id: number, newName: string, newDone: boolean): ToDo;
+    updateTodo(assignee: User, id: number, newName: string, newDone: boolean): Promise<ToDo>;
 
-    deleteTodo(assignee: User, id: number): ToDo;
+    deleteTodo(assignee: User, id: number): Promise<ToDo>;
 }
 
 export class InMemoryStorage implements IStorage {
@@ -46,9 +47,9 @@ export class InMemoryStorage implements IStorage {
         }
     }
 
-    createTodo(assignee: User, name: string): ToDo {
+    async createTodo(assignee: User, name: string): Promise<ToDo> {
         if (!this.userByName.has(assignee.name)) {
-            return null;
+            return null;  // todo: maybe make this an error?
         }
 
         let todo = new ToDo(name, assignee);
@@ -57,7 +58,7 @@ export class InMemoryStorage implements IStorage {
         return todo;
     }
 
-    createUser(name: string, password: string): User {
+    async createUser(name: string, password: string): Promise<User> {
         if (this.userByName.has(name)) {
             throw new UserInputError(`Username (${name}) is already taken!`);
         }
@@ -70,12 +71,8 @@ export class InMemoryStorage implements IStorage {
         return user;
     }
 
-    deleteTodo(assignee: User, id: number): ToDo {
-        let todo = this.readTodo(assignee, id);
-
-        if (!todo) {
-            return null;
-        }
+    async deleteTodo(assignee: User, id: number): Promise<ToDo> {
+        let todo = await this.readTodo(assignee, id);
 
         let newTodos = this.todosByUser.get(assignee.name).filter((t) => t.id !== id);
         this.todosByUser.set(assignee.name, newTodos);
@@ -83,38 +80,37 @@ export class InMemoryStorage implements IStorage {
         return todo;
     }
 
-    readTodo(assignee: User, id: number): ToDo {
-        let todo = this.readTodos(assignee).find((t) => t.id === id);
+    async readTodo(assignee: User, id: number): Promise<ToDo> {
+        let allTodos = await this.readTodos(assignee);
+        let todo = allTodos.find((t) => t.id === id);
 
         if(!todo){
-            return null;
+            throw new UserInputError(
+                `Todo with id ${id} doesn't exist or is not readable by user ${assignee.name}!`);
         }
 
         return todo;
     }
 
-    readTodos(assignee: User): Array<ToDo> {
+    async readTodos(assignee: User): Promise<Array<ToDo>> {
         return [...this.todosByUser.get(assignee.name)];
     }
 
-    readUser(name: string): User {
+    async readUser(name: string): Promise<User> {
         if (!this.userByName.has(name)) {
-            return null;
+            throw new UserInputError(
+                `User with name ${name} doesn't exist!`);
         }
 
         return this.userByName.get(name);
     }
 
-    readUsers(): Array<User> {
+    async readUsers(): Promise<Array<User>> {
         return Array.from(this.userByName.values());
     }
 
-    updateTodo(assignee: User, id: number, newName: string, newDone: boolean): ToDo {
-        let todo = this.readTodo(assignee, id);
-
-        if (!todo) {
-            return null;
-        }
+    async updateTodo(assignee: User, id: number, newName: string, newDone: boolean): Promise<ToDo> {
+        let todo = await this.readTodo(assignee, id);
 
         if (newName !== undefined && newName !== null) {
             todo.name = newName;
@@ -128,3 +124,75 @@ export class InMemoryStorage implements IStorage {
     }
 }
 
+//export class Neo4jStorage implements IStorage {
+//
+//    // todo: add a close and open function to the interface?
+//
+//    private readonly driver: Driver;
+//    private readonly userByName: Map<string, User>;
+//
+//    constructor(url: string, username: string, password: string, initialUsers?: Array<User>,
+//                initialTodos?: Array<ToDo>) {
+//
+//        this.driver = driver(url, auth.basic(username, password));
+//
+//        const session = this.driver.session();
+//
+//        const constraints = [
+//            session.run("CREATE CONSTRAINT ON (u:User) ASSERT u.name IS UNIQUE"),
+//            session.run("CREATE CONSTRAINT ON (t:ToDo) ASSERT t.id IS UNIQUE")
+//        ];
+//
+//        Promise.all(constraints).then(values => {
+//            // todo: is this the correct way?
+//            session.close()
+//        });
+//    }
+//
+//    createTodo(assignee: User, name: string): ToDo {
+//        return null;
+//    }
+//
+//    async createUser(name: string, password: string): Promise<User> {
+//
+//        const session = this.driver.session();
+//
+//        // todo: check if user already exists
+//
+//        const user = new User(name, password);
+//
+//        try {
+//            await session.run(
+//                "CREATE (:User {name: $name, hashedPassword: $hashedPassword})",
+//                user.toPlainObj());
+//        } catch (e) {
+//            throw new UserInputError(`Username (${name}) is already taken!`);
+//        }
+//
+//        return user;
+//    }
+//
+//    deleteTodo(assignee: User, id: number): ToDo {
+//        return null;
+//    }
+//
+//    readTodo(assignee: User, id: number): ToDo {
+//        return null;
+//    }
+//
+//    readTodos(assignee: User): Array<ToDo> {
+//        return null;
+//    }
+//
+//    readUser(name: string): User {
+//        return null;
+//    }
+//
+//    readUsers(): Array<User> {
+//        return null;
+//    }
+//
+//    updateTodo(assignee: User, id: number, newName: string, newDone: boolean): ToDo {
+//        return null;
+//    }
+//}
