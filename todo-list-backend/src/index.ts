@@ -4,7 +4,7 @@ import {ApolloServer, gql} from "apollo-server";
 import {makeExecutableSchema} from "graphql-tools";
 
 import {User} from "./types";
-import {InMemoryStorage, IStorage} from "./data"
+import {InMemoryStorage, IStorage, Neo4jStorage} from "./data"
 import {buildPermissions} from "./permissions";
 
 const typeDefs = gql`
@@ -89,10 +89,16 @@ export function buildApolloServer(storage: IStorage, authSecret: string,
 
             let token: string = req.headers.authorization || "";
             let user: User = null;
-            let decodedToken: any = verify(token, authSecret, {complete: true});
-            if (decodedToken) {
-                let username = decodedToken.payload.username;
-                user = await storage.readUser(username);
+
+            if (token) {
+                try {
+                    let decodedToken: any = verify(token, authSecret, {complete: true});
+                    if (decodedToken) {
+                        let username = decodedToken.payload.username;
+                        user = await storage.readUser(username);
+                    }
+                }
+                catch (e) {}
             }
 
             return {
@@ -103,13 +109,40 @@ export function buildApolloServer(storage: IStorage, authSecret: string,
     });
 }
 
-if (require.main === module) {
-    let storage: IStorage = new InMemoryStorage();
+async function theFuckFunc() {
+    //let storage: IStorage = new InMemoryStorage();
+    let storage: IStorage = new Neo4jStorage("bolt://localhost:7687", "neo4j", "test");
     let authSecret: string = "This is a ridiculously good secret!";
 
+    await storage.open();
     const server = buildApolloServer(storage, authSecret);
+
+    let isRunning = true;
+
+    // this cleanup hook seems to not work and as it looks no one in the js
+    // community seems to care to free ressources properly
+    // todo: find a working solution to properly handle ressource cleanup
+    process.on("exit", () => {
+        storage.close();
+        if (isRunning) {
+            server.stop();
+        }
+    });
+
     server.listen().then(({url}) => {
         console.log(`Server ready at ${url}`);
+    }).catch(reason => {
+        console.log("Server stops because of:");
+        console.log(reason);
+        isRunning = false;
+    });
+}
+
+// suddenly require.main === module no longer works in this shit show of a programming language
+if (!module.parent) {
+    theFuckFunc().catch(reason => {
+        console.log("starting the backend service failed!");
+        console.log(reason);
     });
 
 // todo: add hot reloading

@@ -6,9 +6,14 @@ export class User {
     private readonly _hashedPassword: string;
     private _name: string;
 
-    constructor(name: string, password: string) {
-        this._hashedPassword = hashSync(password, User.noSaltRounds);
+    constructor(name: string, password?: string, hashedPassword?: string) {
         this._name = name;
+        if (hashedPassword) {
+            this._hashedPassword = hashedPassword;
+        }
+        else {
+            this._hashedPassword = hashSync(password, User.noSaltRounds);
+        }
     }
 
     get name(): string {
@@ -40,11 +45,15 @@ export class ToDo {
     private _name: string;
     private _done: boolean;
 
-    constructor(name: string, assignee: User) {
-        this._id = ToDo.lastUsedId++;
-        this._assignee = assignee;
+    public static overrideLastUsedId(lastUsedId: number) {
+        ToDo.lastUsedId = lastUsedId;
+    }
+
+    constructor(name: string, assignee: User, id?: number, done?: boolean) {
         this._name = name;
-        this._done = false;
+        this._assignee = assignee;
+        this._id = id !== undefined ? id : ToDo.lastUsedId++;
+        this._done = done !== undefined ? done : false;
     }
 
     get id(): number {
