@@ -22,6 +22,8 @@ export interface IStorage {
     updateTodo(assignee: User, id: number, newName: string, newDone: boolean): Promise<ToDo>;
 
     deleteTodo(assignee: User, id: number): Promise<ToDo>;
+
+    clearStorage(): Promise<void>;
 }
 
 export class InMemoryStorage implements IStorage {
@@ -29,27 +31,14 @@ export class InMemoryStorage implements IStorage {
     private readonly todosByUser: Map<string, Array<ToDo>>;
     private readonly userByName: Map<string, User>;
 
-    constructor(initialUsers?: Array<User>, initialTodos?: Array<ToDo>) {
+    constructor() {
         this.todosByUser = new Map();
         this.userByName = new Map();
+    }
 
-        if (initialUsers) {
-            for (let user of initialUsers) {
-                this.userByName.set(user.name, user);
-                this.todosByUser.set(user.name, [])
-            }
-        }
-
-        if (initialTodos) {
-            for (let todo of initialTodos) {
-                if (!this.todosByUser.has(todo.assignee.name)) {
-                    throw new ReferenceError(
-                        `intialTodos contains a user (${todo.assignee}) which is not present in initial users!`);
-                }
-
-                this.todosByUser.get(todo.assignee.name).push(todo);
-            }
-        }
+    async clearStorage(): Promise<void> {
+        this.todosByUser.clear();
+        this.userByName.clear();
     }
 
     async createTodo(assignee: User, name: string): Promise<ToDo> {
@@ -135,15 +124,21 @@ export class InMemoryStorage implements IStorage {
 
 export class Neo4jStorage implements IStorage {
 
-    // todo: add a close and open function to the interface?
-
     private readonly driver: Driver;
-    private readonly userByName: Map<string, User>;
 
-    constructor(url: string, username: string, password: string, initialUsers?: Array<User>,
-                initialTodos?: Array<ToDo>) {
-
+    constructor(url: string, username: string, password: string) {
         this.driver = driver(url, auth.basic(username, password));
+    }
+
+    async clearStorage(): Promise<void> {
+        const session = this.driver.session();
+
+        await session.run(`
+            MATCH (n)
+            OPTIONAL MATCH (n)-[r]-()
+            DELETE n,r`);
+
+        await session.close();
     }
 
     async open(): Promise<void> {

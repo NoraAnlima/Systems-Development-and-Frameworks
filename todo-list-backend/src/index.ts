@@ -111,6 +111,7 @@ export function buildApolloServer(storage: IStorage, authSecret: string,
 
 async function theFuckFunc() {
     //let storage: IStorage = new InMemoryStorage();
+
     let storage: IStorage = new Neo4jStorage("bolt://localhost:7687", "neo4j", "test");
     let authSecret: string = "This is a ridiculously good secret!";
 
