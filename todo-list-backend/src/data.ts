@@ -1,4 +1,4 @@
-import {ToDo, User, UserInputError} from "./types";
+import {ToDo, User, DataAccessError} from "./types";
 import {auth, Driver, driver} from "neo4j-driver"
 import {appendSuffixesIfMatch} from "ts-loader/dist/utils";
 
@@ -54,7 +54,7 @@ export class InMemoryStorage implements IStorage {
 
     async createUser(name: string, password: string): Promise<User> {
         if (this.userByName.has(name)) {
-            throw new UserInputError(`Username (${name}) is already taken!`);
+            throw new DataAccessError(`Username (${name}) is already taken!`);
         }
 
         let user = new User(name, password);
@@ -79,7 +79,7 @@ export class InMemoryStorage implements IStorage {
         let todo = allTodos.find((t) => t.id === id);
 
         if(!todo){
-            throw new UserInputError(
+            throw new DataAccessError(
                 `Todo with id ${id} doesn't exist or is not readable by user ${assignee.name}!`);
         }
 
@@ -92,7 +92,7 @@ export class InMemoryStorage implements IStorage {
 
     async readUser(name: string): Promise<User> {
         if (!this.userByName.has(name)) {
-            throw new UserInputError(
+            throw new DataAccessError(
                 `User with name ${name} doesn't exist!`);
         }
 
@@ -174,7 +174,7 @@ export class Neo4jStorage implements IStorage {
         try {
             await session.run(query, todo.toPlainObj());
         } catch (e) {
-            throw new UserInputError(`ToDo (${name}) cannot be created for user ${assignee.name}!`);
+            throw new DataAccessError(`ToDo (${name}) cannot be created for user ${assignee.name}!`);
         }
 
         return todo;
@@ -189,7 +189,7 @@ export class Neo4jStorage implements IStorage {
                 "CREATE (:User {name: $name, hashedPassword: $hashedPassword})",
                 user.toPlainObj());
         } catch (e) {
-            throw new UserInputError(`Username (${name}) is already taken!`);
+            throw new DataAccessError(`Username ${name} is already taken!`);
         }
 
         return user;
@@ -217,7 +217,7 @@ export class Neo4jStorage implements IStorage {
             const node = result.records[0].get(0);
             return deletedTodo;
         } catch (e) {
-            throw new UserInputError(`Todo with ID (${todoId}) does not exist or is not assigned to User (${assignee})!`);
+            throw new DataAccessError(`Todo with ID ${todoId} does not exist or is not assigned to User ${assignee}!`);
         }
     }
 
@@ -237,7 +237,7 @@ export class Neo4jStorage implements IStorage {
             const {id, name, done} = node.properties;
             return new ToDo(name, assignee, id, done);
         } catch (e) {
-            throw new UserInputError(`Todo with ID (${todoId}) does not exist or is not assigned to User (${assignee})!`);
+            throw new DataAccessError(`Todo with ID ${todoId} does not exist or is not assigned to User ${assignee}!`);
         }
     }
 
@@ -263,8 +263,7 @@ export class Neo4jStorage implements IStorage {
 
             return todos;
         } catch (e) {
-            //throw new UserInputError(`Todo with ID (${todoId}) does not exist or is not assigned to User (${assignee})!`);
-            throw new UserInputError("a");
+            throw new DataAccessError(`Read todos failed for user ${assignee}!`);
         }
     }
 
@@ -284,7 +283,7 @@ export class Neo4jStorage implements IStorage {
             const {name, hashedPassword} = node.properties;
             return new User(name, undefined, hashedPassword);
         } catch (e) {
-            throw new UserInputError(`Name (${username}) is already taken!`);
+            throw new DataAccessError(`Read user failed for username ${username}!`);
         }
     }
 
@@ -310,7 +309,7 @@ export class Neo4jStorage implements IStorage {
 
             return users;
         } catch (e) {
-            throw new UserInputError(`Username (${name}) is already taken!`);
+            throw new DataAccessError(`Read users failed!`);
         }
     }
 
@@ -354,7 +353,7 @@ export class Neo4jStorage implements IStorage {
             const {id, name, done} = node.properties;
             return new ToDo(name, assignee, id, done);
         } catch (e) {
-            throw new UserInputError(`Todo with ID (${todoId}) does not exist or is not assigned to User (${assignee})!`);
+            throw new DataAccessError(`Todo with ID ${todoId} does not exist or is not assigned to User ${assignee}!`);
         }
     }
 }

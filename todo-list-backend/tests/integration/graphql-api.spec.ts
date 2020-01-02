@@ -1,8 +1,8 @@
 import {buildApolloServer} from "../../src";
 import {InMemoryStorage, IStorage, Neo4jStorage} from "../../src/data";
-import {User, ToDo, UserInputError} from "../../src/types";
+import {User, ToDo, DataAccessError} from "../../src/types";
 import {ApolloServerTestClient, createTestClient} from "apollo-server-testing";
-import {gql} from "apollo-server";
+import {ApolloServer, gql} from "apollo-server";
 import {sign} from "jsonwebtoken";
 
 const READ_TODOS = gql`query { readTodos { id name done assignee { name }}} `;
@@ -99,7 +99,7 @@ async function serverSetup(addTodos: boolean, authorizeUser: boolean, inMemorySt
 
     let {query, mutate} = createTestClient(testServer);
 
-    return {storage, user, query, mutate};
+    return {testServer, storage, user, query, mutate};
 }
 
 describe("InMemoryStorage", () => {
@@ -113,6 +113,7 @@ describe("Neo4jStorage", () => {
 });
 
 function queryTests(inMemoryStorage: boolean) {
+    let server: ApolloServer;
     let user: User;
     let storage: IStorage;
     let query: any;
@@ -121,10 +122,16 @@ function queryTests(inMemoryStorage: boolean) {
     describe("given a legit authorization token", () => {
         beforeEach(async () => {
             let setup = await serverSetup(true, true, inMemoryStorage);
+            server = setup.testServer;
             storage = setup.storage;
             user = setup.user;
             query = setup.query;
             mutate = setup.mutate;
+        });
+
+        afterEach(async () => {
+            await server.stop();
+            await storage.close();
         });
 
         describe("readTodos", () => {
@@ -140,10 +147,16 @@ function queryTests(inMemoryStorage: boolean) {
     describe("given a random authorization token", () => {
         beforeEach(async () => {
             let setup = await serverSetup(true, false, inMemoryStorage);
+            server = setup.testServer;
             storage = setup.storage;
             user = setup.user;
             query = setup.query;
             mutate = setup.mutate;
+        });
+
+        afterEach(async () => {
+            await server.stop();
+            await storage.close();
         });
 
         describe("readTodos", () => {
@@ -157,16 +170,24 @@ function queryTests(inMemoryStorage: boolean) {
             });
         });
     });
-
 }
 
 function mutationTests(inMemoryStorage: boolean) {
     describe("given correct user credentials", () => {
         let mutate: any;
+        let server: ApolloServer;
+        let storage: IStorage;
 
         beforeEach(async () => {
             let setup = await serverSetup(false, true, inMemoryStorage);
+            storage = setup.storage;
+            server = setup.testServer;
             mutate = setup.mutate;
+        });
+
+        afterEach(async () => {
+            await server.stop();
+            await storage.close();
         });
 
         describe("login", () => {
@@ -186,10 +207,19 @@ function mutationTests(inMemoryStorage: boolean) {
 
     describe("given wrong user credentials", () => {
         let mutate: any;
+        let server: ApolloServer;
+        let storage: IStorage;
 
         beforeEach(async () => {
             let setup = await serverSetup(false, true, inMemoryStorage);
+            storage = setup.storage;
+            server = setup.testServer;
             mutate = setup.mutate;
+        });
+
+        afterEach(async () => {
+            await server.stop();
+            await storage.close();
         });
 
         describe("login", () => {
@@ -209,16 +239,23 @@ function mutationTests(inMemoryStorage: boolean) {
 
     describe("given a legit authorization token", () => {
         let user: User;
+        let server: ApolloServer;
         let storage: IStorage;
         let query: any;
         let mutate: any;
 
         beforeEach(async () => {
             let setup = await serverSetup(false, true, inMemoryStorage);
+            server = setup.testServer;
             storage = setup.storage;
             user = setup.user;
             query = setup.query;
             mutate = setup.mutate;
+        });
+
+        afterEach(async () => {
+            await server.stop();
+            await storage.close();
         });
 
         describe("createTodo", () => {
@@ -464,14 +501,21 @@ function mutationTests(inMemoryStorage: boolean) {
 
     describe("given a random authorization token", () => {
         let storage: IStorage;
+        let server: ApolloServer;
         let query: any;
         let mutate: any;
 
         beforeEach(async () => {
             let setup = await serverSetup(true, false, inMemoryStorage);
+            server = setup.testServer;
             storage = setup.storage;
             query = setup.query;
             mutate = setup.mutate;
+        });
+
+        afterEach(async () => {
+            await server.stop();
+            await storage.close();
         });
 
         describe("createTodo", () => {

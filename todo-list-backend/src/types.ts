@@ -94,7 +94,7 @@ export class ToDo {
     }
 }
 
-export class UserInputError extends Error {
+export class DataAccessError extends Error {
     private _message: string;
 
     constructor(message: string, ...args: any[]) {
