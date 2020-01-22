@@ -4,10 +4,10 @@
                @keyup.enter="addNewTodo"/>
         <button @click="addNewTodo" id="add-button">Add</button>
         <list-item v-for="todo in todos" v-model="todos" :key="todo.id"
-                  :todo="todo"
-                  @delete-clicked="todoDelete"
-                  @name-changed="nameChanged"
-                  @done-changed="doneChanged" >
+                   :todo="todo"
+                   @delete-clicked="todoDelete"
+                   @name-changed="nameChanged"
+                   @done-changed="doneChanged">
         </list-item>
     </div>
 </template>

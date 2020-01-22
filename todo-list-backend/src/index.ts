@@ -21,6 +21,7 @@ const typeDefs = gql`
 
     type Query {
         readTodos: [ToDo]!
+        readOwnUser: User
     }
 
     type Mutation {
@@ -38,6 +39,10 @@ function buildResolvers(storage: IStorage, authSecret: string): any {
             readTodos: async (parent: any, args: any, context: any, info: any) => {
                 let user: User = context.user;
                 return await storage.readTodos(user);
+            },
+            readOwnUser: (parent: any, args: any, context: any, info: any) => {
+                let user: User = context.user;
+                return user;
             },
         },
 
@@ -125,9 +130,7 @@ async function asyncServerStarter() {
     }).catch(reason => {
         console.log("Server stops because of:");
         console.log(reason);
-    }).finally(() => {
-        storage.close();
-    })
+    });
 }
 
 // suddenly require.main === module no longer works in this shit show of a programming language
