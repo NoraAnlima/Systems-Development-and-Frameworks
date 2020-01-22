@@ -106,3 +106,16 @@ export class DataAccessError extends Error {
         return this._message;
     }
 }
+
+export class AuthorizationError extends Error {
+    private _message: string;
+
+    constructor(message: string, ...args: any[]) {
+        super(...args);
+        this._message = message;
+    }
+
+    get message(): string {
+        return this._message;
+    }
+}

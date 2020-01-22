@@ -69,6 +69,7 @@ function buildResolvers(storage: IStorage, authSecret: string): any {
                 return await storage.createUser(args.name, args.password);
             }
         }
+        // todo: add a Todo -> assignee resolver
     }
 }
 
@@ -94,7 +95,7 @@ export function buildApolloServer(storage: IStorage, authSecret: string,
                 try {
                     let decodedToken: any = verify(token, authSecret, {complete: true});
                     if (decodedToken) {
-                        let username = decodedToken.payload.username;
+                        let {username} = decodedToken.payload;
                         user = await storage.readUser(username);
                     }
                 }

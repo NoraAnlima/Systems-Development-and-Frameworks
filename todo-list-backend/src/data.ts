@@ -1,6 +1,5 @@
-import {ToDo, User, DataAccessError} from "./types";
+import {ToDo, User, DataAccessError, AuthorizationError} from "./types";
 import {auth, Driver, driver} from "neo4j-driver"
-import {appendSuffixesIfMatch} from "ts-loader/dist/utils";
 
 export interface IStorage {
     open(): Promise<void>;
@@ -43,7 +42,7 @@ export class InMemoryStorage implements IStorage {
 
     async createTodo(assignee: User, name: string): Promise<ToDo> {
         if (!this.userByName.has(assignee.name)) {
-            return null;  // todo: maybe make this an error?
+            throw new AuthorizationError(`User (${assignee.name}) doesn't exist!`)
         }
 
         let todo = new ToDo(name, assignee);
@@ -176,6 +175,9 @@ export class Neo4jStorage implements IStorage {
         } catch (e) {
             throw new DataAccessError(`ToDo (${name}) cannot be created for user ${assignee.name}!`);
         }
+        finally {
+            await session.close();
+        }
 
         return todo;
     }
@@ -191,6 +193,9 @@ export class Neo4jStorage implements IStorage {
         } catch (e) {
             throw new DataAccessError(`Username ${name} is already taken!`);
         }
+        finally {
+            await session.close();
+        }
 
         return user;
     }
@@ -203,7 +208,7 @@ export class Neo4jStorage implements IStorage {
         const query = `
             MATCH (u:User {name: $username})-[:ASSIGNED_TO]->(t:ToDo {id: $todoId})
             DETACH DELETE t
-            RETURN t
+            RETURN t {.*}
         `;
 
         try {
@@ -214,10 +219,13 @@ export class Neo4jStorage implements IStorage {
                     todoId: todoId
                 });
 
-            const node = result.records[0].get(0);
+            const node = result.records[0].get(0); // todo: return node here?
             return deletedTodo;
         } catch (e) {
             throw new DataAccessError(`Todo with ID ${todoId} does not exist or is not assigned to User ${assignee}!`);
+        }
+        finally {
+            await session.close();
         }
     }
 
@@ -227,17 +235,18 @@ export class Neo4jStorage implements IStorage {
         const query = `
             MATCH (u:User)-[:ASSIGNED_TO]->(t:ToDo)
             WHERE t.id = $id AND u.name = $name
-            RETURN t
+            RETURN t {.*}
         `;
 
         try {
             const result = await session.run(query, {id: todoId, name: assignee.name});
-            const node = result.records[0].get(0);
-
-            const {id, name, done} = node.properties;
+            const {id, name, done} = result.records[0].get(0);
             return new ToDo(name, assignee, id, done);
         } catch (e) {
             throw new DataAccessError(`Todo with ID ${todoId} does not exist or is not assigned to User ${assignee}!`);
+        }
+        finally {
+            await session.close();
         }
     }
 
@@ -247,23 +256,21 @@ export class Neo4jStorage implements IStorage {
         const query = `
             MATCH (u:User)-[:ASSIGNED_TO]->(t:ToDo)
             WHERE u.name = $name
-            RETURN t
+            RETURN t {.*}
             ORDER BY t.id
         `;
 
         try {
             const result = await session.run(query, {name: assignee.name});
-
-            let todos: Array<ToDo> = [];
-            for (let i = 0; i < result.records.length; i++) {
-                const node = result.records[i].get(0);
-                const {id, name, done} = node.properties;
-                todos.push(new ToDo(name, assignee, id, done));
-            }
-
-            return todos;
+            return result.records.map(record => {
+                const { id, name, done } = record.get('t');
+                return new ToDo(name, assignee, id, done)
+            })
         } catch (e) {
             throw new DataAccessError(`Read todos failed for user ${assignee}!`);
+        }
+        finally {
+            await session.close();
         }
     }
 
@@ -285,6 +292,9 @@ export class Neo4jStorage implements IStorage {
         } catch (e) {
             throw new DataAccessError(`Read user failed for username ${username}!`);
         }
+        finally {
+            await session.close();
+        }
     }
 
     async readUsers(): Promise<Array<User>> {
@@ -293,23 +303,22 @@ export class Neo4jStorage implements IStorage {
         const query = `
             MATCH (u:User)
             WHERE u.name = $name
-            RETURN u
+            RETURN u {.*}
             ORDER BY u.name
         `;
 
         try {
             const result = await session.run(query, {name});
 
-            let users: Array<User> = [];
-            for (let i = 0; i < result.records.length; i++) {
-                const node = result.records[i].get(0);
-                const {username, hashedPassword} = node.properties;
-                users.push(new User(username, undefined, hashedPassword));
-            }
-
-            return users;
+            return result.records.map(record => {
+                const { username, hashedPassword } = record.get('t');
+                return new User(username, undefined, hashedPassword)
+            })
         } catch (e) {
             throw new DataAccessError(`Read users failed!`);
+        }
+        finally {
+            await session.close();
         }
     }
 
@@ -318,7 +327,7 @@ export class Neo4jStorage implements IStorage {
 
         const oldTodo = await this.readTodo(assignee, todoId);
 
-        if (newName === undefined && newDone === undefined) {
+        if (!(newName || newDone !== undefined)) {
             return oldTodo;
         }
 
@@ -343,9 +352,9 @@ export class Neo4jStorage implements IStorage {
                 query,
                 {
                     username: assignee.name,
-                    todoId: todoId,
-                    newName: newName,
-                    newDone: newDone
+                    todoId,
+                    newName,
+                    newDone
                 });
 
             const node = result.records[0].get(0);
@@ -354,6 +363,9 @@ export class Neo4jStorage implements IStorage {
             return new ToDo(name, assignee, id, done);
         } catch (e) {
             throw new DataAccessError(`Todo with ID ${todoId} does not exist or is not assigned to User ${assignee}!`);
+        }
+        finally {
+            await session.close();
         }
     }
 }

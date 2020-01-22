@@ -375,7 +375,7 @@ function mutationTests(inMemoryStorage: boolean) {
                         }
                     });
 
-                    expect(storage.readTodo(user, todo.id)).rejects.toThrow(Error);
+                    await expect(storage.readTodo(user, todo.id)).rejects.toThrow(Error);
                 });
 
                 it("returns the removed todo", async () => {
@@ -494,7 +494,7 @@ function mutationTests(inMemoryStorage: boolean) {
                     }
                 });
 
-                expect(await storage.readUser(userName)).toMatchObject({name: userName});
+                await expect(storage.readUser(userName)).resolves.toMatchObject({name: userName});
             });
         });
     });
@@ -553,7 +553,7 @@ function mutationTests(inMemoryStorage: boolean) {
         describe("updateTodoDone", () => {
             it("raises an error", async () => {
                 let userWithTodo = await storage.readUser("nora");
-                let todoToChange = (await storage.readTodos(userWithTodo))[0];
+                let [todoToChange] = await storage.readTodos(userWithTodo);
 
                 let response = await mutate({
                     mutation: UPDATE_TODO,
