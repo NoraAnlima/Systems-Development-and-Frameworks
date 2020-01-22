@@ -4,7 +4,7 @@ import {ApolloServer, gql} from "apollo-server";
 import {makeExecutableSchema} from "graphql-tools";
 
 import {User} from "./types";
-import {InMemoryStorage, IStorage} from "./data"
+import {InMemoryStorage, IStorage, Neo4jStorage} from "./data"
 import {buildPermissions} from "./permissions";
 
 const typeDefs = gql`
@@ -35,15 +35,15 @@ const typeDefs = gql`
 function buildResolvers(storage: IStorage, authSecret: string): any {
     return {
         Query: {
-            readTodos: (parent: any, args: any, context: any, info: any) => {
+            readTodos: async (parent: any, args: any, context: any, info: any) => {
                 let user: User = context.user;
-                return storage.readTodos(user);
+                return await storage.readTodos(user);
             },
         },
 
         Mutation: {
-            login: (parent: any, args: any, context: any, info: any) => {
-                let user = storage.readUser(args.name);
+            login: async (parent: any, args: any, context: any, info: any) => {
+                let user = await storage.readUser(args.name);
 
                 if (!user || !user.checkPassword(args.password)) {
                     return null;
@@ -55,20 +55,21 @@ function buildResolvers(storage: IStorage, authSecret: string): any {
 
                 return sign(payload, authSecret, {expiresIn: "1 day"});
             },
-            createTodo: (parent: any, args: any, context: any, info: any) => {
+            createTodo: async (parent: any, args: any, context: any, info: any) => {
                 let user: User = context.user;
-                return storage.createTodo(user, args.name);
+                return await storage.createTodo(user, args.name);
             },
-            updateTodo: (parent: any, args: any, context: any, info: any) => {
-                return storage.updateTodo(context.user, args.id, args.name, args.done);
+            updateTodo: async (parent: any, args: any, context: any, info: any) => {
+                return await storage.updateTodo(context.user, args.id, args.name, args.done);
             },
-            deleteTodo: (parent: any, args: any, context: any, info: any) => {
-                return storage.deleteTodo(context.user, args.id);
+            deleteTodo: async (parent: any, args: any, context: any, info: any) => {
+                return await storage.deleteTodo(context.user, args.id);
             },
-            createUser: (parent: any, args: any, context: any, info: any) => {
-                return storage.createUser(args.name, args.password);
+            createUser: async (parent: any, args: any, context: any, info: any) => {
+                return await storage.createUser(args.name, args.password);
             }
         }
+        // todo: add a Todo -> assignee resolver
     }
 }
 
@@ -82,17 +83,23 @@ export function buildApolloServer(storage: IStorage, authSecret: string,
 
     return new ApolloServer({
         schema: finalizedSchema,
-        context: ({req}) => {
+        context: async ({req}) => {
             if (context) {
                 return context;
             }
 
             let token: string = req.headers.authorization || "";
             let user: User = null;
-            let decodedToken: any = verify(token, authSecret, {complete: true});
-            if (decodedToken) {
-                let username = decodedToken.payload.username;
-                user = storage.readUser(username);
+
+            if (token) {
+                try {
+                    let decodedToken: any = verify(token, authSecret, {complete: true});
+                    if (decodedToken) {
+                        let {username} = decodedToken.payload;
+                        user = await storage.readUser(username);
+                    }
+                }
+                catch (e) {}
             }
 
             return {
@@ -103,13 +110,31 @@ export function buildApolloServer(storage: IStorage, authSecret: string,
     });
 }
 
-if (require.main === module) {
-    let storage: IStorage = new InMemoryStorage();
+async function asyncServerStarter() {
+    let storage: IStorage = new Neo4jStorage("bolt://localhost:7687", "neo4j", "test");
     let authSecret: string = "This is a ridiculously good secret!";
 
+    await storage.open();
     const server = buildApolloServer(storage, authSecret);
-    server.listen().then(({url}) => {
+
+    server.listen().then(({url, server}) => {
+        server.on("close", () => {
+            storage.close();
+        });
         console.log(`Server ready at ${url}`);
+    }).catch(reason => {
+        console.log("Server stops because of:");
+        console.log(reason);
+    }).finally(() => {
+        storage.close();
+    })
+}
+
+// suddenly require.main === module no longer works in this shit show of a programming language
+if (!module.parent) {
+    asyncServerStarter().catch(reason => {
+        console.log("starting the backend service failed!");
+        console.log(reason);
     });
 
 // todo: add hot reloading

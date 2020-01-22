@@ -6,9 +6,14 @@ export class User {
     private readonly _hashedPassword: string;
     private _name: string;
 
-    constructor(name: string, password: string) {
-        this._hashedPassword = hashSync(password, User.noSaltRounds);
+    constructor(name: string, password?: string, hashedPassword?: string) {
         this._name = name;
+        if (hashedPassword) {
+            this._hashedPassword = hashedPassword;
+        }
+        else {
+            this._hashedPassword = hashSync(password, User.noSaltRounds);
+        }
     }
 
     get name(): string {
@@ -19,8 +24,16 @@ export class User {
         this._name = value;
     }
 
+    private get hashedPassword(): string {
+        return this._hashedPassword;
+    }
+
     public checkPassword(password: string): boolean {
-        return compareSync(password, this._hashedPassword);
+        return compareSync(password, this.hashedPassword);
+    }
+
+    public toPlainObj(): {name: string, hashedPassword: string} {
+        return {name: this.name, hashedPassword: this.hashedPassword};
     }
 }
 
@@ -32,11 +45,15 @@ export class ToDo {
     private _name: string;
     private _done: boolean;
 
-    constructor(name: string, assignee: User) {
-        this._id = ToDo.lastUsedId++;
-        this._assignee = assignee;
+    public static overrideLastUsedId(lastUsedId: number) {
+        ToDo.lastUsedId = lastUsedId;
+    }
+
+    constructor(name: string, assignee: User, id?: number, done?: boolean) {
         this._name = name;
-        this._done = false;
+        this._assignee = assignee;
+        this._id = id !== undefined ? id : ToDo.lastUsedId++;
+        this._done = done !== undefined ? done : false;
     }
 
     get id(): number {
@@ -66,9 +83,31 @@ export class ToDo {
     set name(value: string) {
         this._name = value;
     }
+
+    public toPlainObj(): {id: number, assignee: {name: string, hashedPassword: string}, name: string, done: boolean} {
+        return {
+            id: this.id,
+            assignee: this.assignee.toPlainObj(),
+            name: this.name,
+            done: this.done
+        };
+    }
 }
 
-export class UserInputError extends Error {
+export class DataAccessError extends Error {
+    private _message: string;
+
+    constructor(message: string, ...args: any[]) {
+        super(...args);
+        this._message = message;
+    }
+
+    get message(): string {
+        return this._message;
+    }
+}
+
+export class AuthorizationError extends Error {
     private _message: string;
 
     constructor(message: string, ...args: any[]) {
